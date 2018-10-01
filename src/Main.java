@@ -6,15 +6,20 @@ import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.util.HashMap;
+import java.util.List;
 
 public class Main extends Application {
     private Stage stage;
     private Scene sceneAccueil;
     private Scene sceneSignUp;
     private Scene sceneLoading;
-    private HashMap<String,User> hashMapUser;
+    private HashMap<String, User> hashMapUser;
+    private File file;
 
     public static void main(String[] args) {
         launch(args);
@@ -37,7 +42,9 @@ public class Main extends Application {
 
     public Scene accueil() {
         hashMapUser = new HashMap<>();
-        load();
+        file = new File("users.csv");
+        if (file.exists())
+            load();
 
         Group group = new Group();
         Scene scene = new Scene(group);
@@ -67,7 +74,7 @@ public class Main extends Application {
         labelPassword.setTranslateY(60);
         group.getChildren().add(labelPassword);
 
-        TextField fieldPassword = new TextField();
+        PasswordField fieldPassword = new PasswordField();
         fieldPassword.setPromptText("Mot de passe");
         fieldPassword.setTranslateY(85);
         group.getChildren().add(fieldPassword);
@@ -78,8 +85,8 @@ public class Main extends Application {
         group.getChildren().add(labelErreur);
 
         boutonConnect.setOnAction(event -> {
-            TextField[] listeTextField = {fieldUtilisateur,fieldPassword};
-            if(connect(listeTextField,labelErreur))
+            TextField[] listeTextField = {fieldUtilisateur, fieldPassword};
+            if (connect(listeTextField, labelErreur))
                 changeScene(sceneLoading);
         });
 
@@ -276,11 +283,11 @@ public class Main extends Application {
                 return false;
             }
         }
-        if (listeTextField[3].getText().equals(listeTextField[4].getText())) {
+        if (!listeTextField[3].getText().equals(listeTextField[4].getText())) {
             labelErreur.setText("Erreur: Confirmation de mot de passe échouée");
             return false;
         }
-        if (hashMapUser.get(listeTextField[2].getText())!=null) {
+        if (hashMapUser.get(listeTextField[2].getText()) != null) {
             labelErreur.setText("Erreur: Nom d'utilisateur déjà utilié");
             return false;
         }
@@ -302,29 +309,30 @@ public class Main extends Application {
                 labelErreur.setText("Erreur: " + listeTextField[i].getPromptText() + " manquant");
                 return false;
             }
-            if(hashMapUser.get(listeTextField[0].getText())==null){
-                labelErreur.setText("Erreur: Utilisateur non-existant");
-                return false;
-            }
-            if (!hashMapUser.get(listeTextField[0].getText()).getPassword().equals(hash(listeTextField[1].getText()))){
-                labelErreur.setText("Erreur: Mauvais mot de passe");
-                return false;
-            }
+        if (hashMapUser.get(listeTextField[0].getText()) == null) {
+            labelErreur.setText("Erreur: Utilisateur non-existant");
+            return false;
+        }
+        if (!hashMapUser.get(listeTextField[0].getText()).getPassword().equals(hash(listeTextField[1].getText()))) {
+            labelErreur.setText("Erreur: Mauvais mot de passe");
+            return false;
+        }
         labelErreur.setText("");
         return true;
     }
 
     public void inscription(String[] listeString, int age) {
         listeString[3] = hash(listeString[3]);
-        String textCSV = listeString[0] + "," + listeString[1] + "," + listeString[2] + "," + listeString[3] + "," + listeString[4] + "," + age;
+        String textCSV = listeString[0] + "," + listeString[1] + "," + listeString[2] + "," + listeString[3] + "," + listeString[4] + "," + age + "\n";
         try {
-            ObjectOutputStream sortie = new ObjectOutputStream(new BufferedOutputStream(new FileOutputStream("users.csv")));
-            sortie.writeObject(textCSV);
-            sortie.close();
+            if (file.exists())
+                Files.write(Paths.get("users.csv"), textCSV.getBytes(), StandardOpenOption.APPEND);
+            else
+                Files.write(Paths.get("users.csv"), textCSV.getBytes(), StandardOpenOption.CREATE);
         } catch (IOException e) {
             e.printStackTrace();
         }
-        hashMapUser.put(listeString[2],new User(listeString[0],listeString[1],listeString[2],listeString[3],listeString[4],age));
+        hashMapUser.put(listeString[2], new User(listeString[0], listeString[1], listeString[2], listeString[3], listeString[4], age));
     }
 
     public String hash(String string) {
@@ -345,13 +353,13 @@ public class Main extends Application {
 
     public void load() {
         try {
-            ObjectInputStream entree = new ObjectInputStream(new BufferedInputStream(new FileInputStream("users.csv")));
+            List<String> allLines = Files.readAllLines(Paths.get("users.csv"));
             String string;
-            while ((string = (String)entree.readObject()) != null) {
+            for (int i = 0; (string = allLines.get(i)) != null; i++) {
                 String[] parts = string.split(",");
-                hashMapUser.put(parts[2],new User(parts[0],parts[1],parts[2],parts[3],parts[4],Integer.parseInt(parts[5])));
+                hashMapUser.put(parts[2], new User(parts[0], parts[1], parts[2], parts[3], parts[4], Integer.parseInt(parts[5])));
             }
-        }catch (Exception e) {
+        } catch (Exception e) {
             System.out.println("Lecture du CSV terminée");
         }
     }
